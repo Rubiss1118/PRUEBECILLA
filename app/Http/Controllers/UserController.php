@@ -51,18 +51,46 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:8',
+            ]);
 
-        $validated['password'] = Hash::make($validated['password']);
-        
-        User::create($validated);
+            $validated['password'] = Hash::make($validated['password']);
+            
+            $user = User::create($validated);
 
-        return redirect()->route('users.index')
-            ->with('success', 'Usuario creado exitosamente.');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Usuario creado exitosamente',
+                    'data' => $user
+                ], 201);
+            }
+
+            return redirect()->route('users.index')
+                ->with('success', 'Usuario creado exitosamente.');
+                
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Error de validación',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+            throw $e;
+        } catch (\Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Error al crear el usuario'
+                ], 500);
+            }
+            throw $e;
+        }
     }
 
     /**

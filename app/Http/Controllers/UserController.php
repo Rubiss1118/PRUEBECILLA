@@ -13,29 +13,37 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        // Recibir parámetros por URL (?nombre=Juan&email=juan@ejemplo.com)
-        $query = User::query();
-        
-        if ($request->has('nombre')) {
-            $query->where('name', 'like', '%' . $request->nombre . '%');
-        }
-        
-        if ($request->has('email')) {
-            $query->where('email', 'like', '%' . $request->email . '%');
-        }
+        try {
+            $users = User::all();
 
-        $users = $query->get();
+            if ($request->wantsJson() || $request->header('Accept') === 'application/json') {
+                return response()->json([
+                    'status' => 'success',
+                    'data' => $users
+                ]);
+            }
 
-        // Si la petición espera JSON, devolvemos JSON
-        if ($request->expectsJson()) {
+            // Para vista HTML, verificamos si existe la vista
+            if (view()->exists('users.index')) {
+                return view('users.index', compact('users'));
+            }
+
+            // Si no existe la vista, forzamos respuesta JSON
             return response()->json([
                 'status' => 'success',
                 'data' => $users
             ]);
-        }
 
-        // Si no, devolvemos la vista
-        return view('users.index', compact('users'));
+        } catch (\Exception $e) {
+            if ($request->wantsJson() || $request->header('Accept') === 'application/json') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Error al obtener usuarios',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+            throw $e;
+        }
     }
 
     /**

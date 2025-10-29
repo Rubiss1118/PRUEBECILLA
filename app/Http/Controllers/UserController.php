@@ -16,42 +16,36 @@ class UserController extends Controller
         try {
             $users = User::all();
 
-            if ($request->wantsJson() || $request->header('Accept') === 'application/json') {
-                return response()->json([
-                    'status' => 'success',
-                    'data' => $users
-                ]);
-            }
-
-            // Para vista HTML, verificamos si existe la vista
-            if (view()->exists('users.index')) {
-                return view('users.index', compact('users'));
-            }
-
-            // Si no existe la vista, forzamos respuesta JSON
+            // Siempre devolver JSON para API
             return response()->json([
                 'status' => 'success',
                 'data' => $users
             ]);
 
         } catch (\Exception $e) {
-            if ($request->wantsJson() || $request->header('Accept') === 'application/json') {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Error al obtener usuarios',
-                    'error' => $e->getMessage()
-                ], 500);
-            }
-            throw $e;
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener usuarios',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
     /**
      * Show the form for creating a new resource.
+     * Para API, devolvemos la estructura esperada para crear un usuario
      */
     public function create()
     {
-        return view('users.create');
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Formulario para crear usuario',
+            'required_fields' => [
+                'name' => 'string|required|max:255',
+                'email' => 'string|required|email|unique',
+                'password' => 'string|required|min:8'
+            ]
+        ]);
     }
 
     /**
@@ -70,34 +64,25 @@ class UserController extends Controller
             
             $user = User::create($validated);
 
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Usuario creado exitosamente',
-                    'data' => $user
-                ], 201);
-            }
-
-            return redirect()->route('users.index')
-                ->with('success', 'Usuario creado exitosamente.');
+            // Siempre devolver JSON para API
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Usuario creado exitosamente',
+                'data' => $user
+            ], 201);
                 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Error de validación',
-                    'errors' => $e->errors()
-                ], 422);
-            }
-            throw $e;
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Error al crear el usuario'
-                ], 500);
-            }
-            throw $e;
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al crear el usuario',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
@@ -106,26 +91,50 @@ class UserController extends Controller
      */
     public function show(Request $request, string $id)
     {
-        $user = User::findOrFail($id);
+        try {
+            $user = User::findOrFail($id);
 
-        // Si la petición espera JSON, devolvemos JSON
-        if ($request->expectsJson()) {
+            // Siempre devolver JSON para API
             return response()->json([
                 'status' => 'success',
                 'data' => $user
             ]);
-        }
 
-        return view('users.show', compact('user'));
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Usuario no encontrado',
+                'error' => $e->getMessage()
+            ], 404);
+        }
     }
 
     /**
      * Show the form for editing the specified resource.
+     * Para API, devolvemos los datos del usuario a editar
      */
     public function edit(string $id)
     {
-        $user = User::findOrFail($id);
-        return view('users.edit', compact('user'));
+        try {
+            $user = User::findOrFail($id);
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Datos del usuario para editar',
+                'data' => $user,
+                'editable_fields' => [
+                    'name' => 'string|required|max:255',
+                    'email' => 'string|required|email|unique'
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Usuario no encontrado',
+                'error' => $e->getMessage()
+            ], 404);
+        }
     }
 
     /**
@@ -133,17 +142,36 @@ class UserController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $user = User::findOrFail($id);
-        
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
-        ]);
+        try {
+            $user = User::findOrFail($id);
+            
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+            ]);
 
-        $user->update($validated);
+            $user->update($validated);
 
-        return redirect()->route('users.index')
-            ->with('success', 'Usuario actualizado exitosamente.');
+            // Siempre devolver JSON para API
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Usuario actualizado exitosamente',
+                'data' => $user
+            ]);
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al actualizar el usuario',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -151,10 +179,22 @@ class UserController extends Controller
      */
     public function destroy(string $id)
     {
-        $user = User::findOrFail($id);
-        $user->delete();
+        try {
+            $user = User::findOrFail($id);
+            $user->delete();
 
-        return redirect()->route('users.index')
-            ->with('success', 'Usuario eliminado exitosamente.');
+            // Siempre devolver JSON para API
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Usuario eliminado exitosamente'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al eliminar el usuario',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
